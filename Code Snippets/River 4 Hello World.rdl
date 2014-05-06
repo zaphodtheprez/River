@@ -1,0 +1,10 @@
+@OData
+application HelloWorld {
+   entity Person {
+      key element name: String;
+
+      action greeting() : String {
+         return 'Hello ' + this.name + '. Welcome to SAP River!';
+      }
+   }
+}

@@ -1,0 +1,18 @@
+@OData
+application HelloWorld {
+
+	entity Person {
+      key element name: String;
+	  element age: Integer;
+
+      action greeting() : String {
+		let msg = 'Hello ' + this.name + '. Welcome to SAP River!';
+        return msg;
+      }
+	  
+      action reset() {
+        apply delete() to select * from Person;
+      }
+
+	}
+}

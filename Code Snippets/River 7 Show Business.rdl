@@ -1,0 +1,73 @@
+@OData
+application MyFirstRiverApp {
+	
+	entity Movie {
+		key element title : String(100);
+		@required element year : Integer;
+		element cost : DecimalFloat default 1000000.0;
+		element income : DecimalFloat;
+		element producer : Association to Producer;
+		element starring : Association[0..*] to Actor via entity Casting;
+		element rating : Rating default Rating.Restricted;
+		element genre : Genre;
+		
+		action audition(auditionStar : Actor) : String {
+			let message : String = 'Dear ' + auditionStar.name + '. Thank you for your application for the movie ' + this.title + '.';
+			if( auditionStar.age > 50 && this.genre != Genre.DRAMA) {
+				message = message + ' Unfortunately, you did not get the part.';
+			}
+			else {
+				message = message +	' Congratulations! You are the perfect casting for this movie.';
+				let fairOffer = SELECT ONE AVG(salary) as offer FROM Casting as cast WHERE cast.movie.genre == this.genre;
+				
+				let c:Casting = Casting{movie: this, star: auditionStar, salary: fairOffer.offer};
+				c.save();
+			}
+			return message;
+		}
+	}
+	
+	entity Producer {
+		key element name : String;
+		element movies : Association[0..*] to Movie via backlink producer;
+	}
+	
+	entity Actor {
+		key element name : String;
+		element emailAddress : String;
+		element age : Integer;
+		element movies : Association[0..*] to Movie via entity Casting;		
+	}
+	
+	entity Casting {
+		@required element movie : Association to Movie;
+		@required element star : Association to Actor;
+		element salary : DecimalFloat;
+	}
+	
+	type Genre : enum {ACTION_GENRE; COMEDY; DRAMA; FAMILY; ADVENTURE; SCI_FI;}
+	
+	type Rating : String(5) enum {
+		General_Audiences = 'G';
+		Parental_Guidance = 'PG';
+		Parents_Strongly_Cautioned = 'PG-13';
+		Restricted = 'R';
+	}
+	
+	view Blockbusters as
+	SELECT TOP 10 FROM Movie {
+		title,
+		genre,
+		income
+	}
+	ORDER BY income DESC;
+	
+	view RichProducers as
+	SELECT FROM Movie {
+		producer.name,
+		SUM(income - cost) as total
+	}
+	GROUP BY producer.name
+	ORDER BY SUM(income - cost) DESC;
+	
+}

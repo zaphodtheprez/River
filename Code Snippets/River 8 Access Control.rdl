@@ -1,0 +1,66 @@
+application HelloWorld {
+	
+	role EmployeeRole;
+	
+	entity Employee accessible by HelloWorld.services {
+		
+		key element userId : String;
+		element name : String;
+		element salary : DecimalFloat default 50000;
+		
+		element manager : association to Employee;
+		element employees : association[] to Employee via backlink manager;
+		
+		action canReadSalary (employee : Employee): Boolean  {
+			if ((employee.userId == this.userId) or (employee.manager.userId is not null and this.userId == employee.manager.userId)) { 
+				return true;
+			}
+			return false;		
+		}
+		
+		action canUpdateSalary (employee : Employee): Boolean {
+			if (employee.manager.userId is not null and this.userId == employee.manager.userId) { 
+				return true;
+			}
+			return false;		
+		}
+		
+	}
+	
+	@OData
+	export namespace services accessible by EmployeeRole {
+		
+		export action getEmployee(id: String) : EmployeeInfo {	
+			let loggedin:HelloWorld.Employee = SELECT ONE * FROM HelloWorld.Employee WHERE userId == sap.hana.services.session.getUserName();
+			let employee = SELECT ONE * FROM HelloWorld.Employee WHERE userId == id;
+			let fullProfile = (id == loggedin.userId || employee.manager.userId == loggedin.userId);
+			if(loggedin.canReadSalary(employee))
+				return SELECT ONE FROM employee {userId, name, salary, manager.userId AS managerId};
+			else
+				return SELECT ONE FROM employee {userId, name, 0 AS salary, manager. userId AS managerId};
+		} 
+		
+		type EmployeeInfo {
+			element userId : String;
+			element name : String;
+			element salary : DecimalFloat default 50000;
+			element managerId : String;
+		}
+
+		export action updateSalary (id : String, newSalary : DecimalFloat) : String  {			
+			let employee : HelloWorld.Employee = SELECT ONE * FROM HelloWorld.Employee WHERE userId == id;
+			let loggedin:HelloWorld.Employee = SELECT ONE * FROM HelloWorld.Employee WHERE userId == sap.hana.services.session.getUserName();
+			
+			let message = ' You are not authorized to update the salary of employee ' + employee.name + '. Please contact his/her manager ' + employee.manager.name;	
+			if (loggedin.canUpdateSalary (employee)) {
+				employee.salary = newSalary;
+				employee.save ();
+				message = 'Salary was updated successfully to ' + newSalary + ' for employee ' + employee.name;
+			}			
+			if (message is null) {message = 'No results';}
+			return message;
+		}
+		
+	}
+	
+}
